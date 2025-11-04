@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"log"
 
 	"github.com/jroimartin/gocui"
@@ -19,6 +20,19 @@ func layout(g *gocui.Gui) error {
 		if err != gocui.ErrUnknownView {
 			return err
 		}
+		v.Title = "Dockerfile"
+		v.Editable = true
+		v.Wrap = true
+
+		if _, err := g.SetCurrentView("body"); err != nil {
+			return err
+		}
+
+		b, err := ioutil.ReadFile("Dockerfile")
+		if err != nil {
+			panic(err)
+		}
+		fmt.Fprintf(v, "%s", b)
 		fmt.Fprintln(v, "Dockerfile Area")
 	}
 	if v, err := g.SetView("help", 2*maxX/3+1, 3, maxX-1, 3*maxY/4); err != nil {
@@ -45,6 +59,8 @@ func main() {
 	}
 	defer g.Close()
 
+	g.Cursor = true
+	g.Mouse = true
 	g.SetManagerFunc(layout)
 
 	if err := g.SetKeybinding("", gocui.KeyCtrlC, gocui.ModNone, quit); err != nil {
