@@ -50,9 +50,28 @@ func layout(g *gocui.Gui) error {
 		fmt.Fprintln(v, "Commands for using the editor")
 		fmt.Fprintln(v, "Ctrl-C: Exit")
 		fmt.Fprintln(v, "Ctrl-S: Save")
+		fmt.Fprintln(v, "Ctrl-M: Save As")
 	}
 	return nil
 }
+
+func saveAs(g *gocui.Gui, v *gocui.View) error {
+	f, err := os.Create("dockerfile")
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	p := make([]byte, 100)
+	v.Rewind()
+	if _, err := io.CopyBuffer(f, v, p); err != nil {
+		return err
+	}
+	if err := f.Sync(); err != nil {
+		return err
+	}
+	return nil
+}
+
 func saveMain(g *gocui.Gui, v *gocui.View) error {
 	dir, err := os.Getwd()
 	if err != nil {
@@ -96,6 +115,9 @@ func keybindings(g *gocui.Gui) error {
 		return err
 	}
 	if err := g.SetKeybinding("body", gocui.KeyCtrlS, gocui.ModNone, saveMain); err != nil {
+		return err
+	}
+	if err := g.SetKeybinding("body", gocui.KeyCtrlM, gocui.ModNone, saveAs); err != nil {
 		return err
 	}
 	return nil
