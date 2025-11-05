@@ -4,10 +4,13 @@ import (
 	"fmt"
 	"io"
 	"log"
+
+	//"log"
 	"os"
 	"path/filepath"
 
 	"github.com/jroimartin/gocui"
+	"github.com/spf13/cobra"
 )
 
 func layout(g *gocui.Gui) error {
@@ -138,8 +141,35 @@ func keybindings(g *gocui.Gui) error {
 	}
 	return nil
 }
-func main() {
+func runGocui(cmd *cobra.Command, args []string) {
 	g, err := gocui.NewGui(gocui.OutputNormal)
+	if err != nil {
+		log.Panicln(err)
+	}
+	defer g.Close()
+	g.Cursor = true
+	g.Mouse = true
+	g.SetManagerFunc(layout)
+	if err := keybindings(g); err != nil {
+		log.Panicln(err)
+	}
+	if err := g.MainLoop(); err != nil && err != gocui.ErrQuit {
+		log.Panicln(err)
+	}
+}
+func main() {
+	var rootCmd = &cobra.Command{
+		Use:   "nanodock [file]",
+		Short: "Terminal based Dockerfile Editor",
+		Long:  "A Terminal based Dockerfile Editor",
+		//Args:  cobra.MinimumNArgs(1),
+		Run: runGocui,
+	}
+	if err := rootCmd.Execute(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	/*g, err := gocui.NewGui(gocui.OutputNormal)
 	if err != nil {
 		log.Panicln(err)
 	}
@@ -155,5 +185,5 @@ func main() {
 
 	if err := g.MainLoop(); err != nil && err != gocui.ErrQuit {
 		log.Panicln(err)
-	}
+	}*/
 }
