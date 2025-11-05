@@ -51,6 +51,7 @@ func layout(g *gocui.Gui) error {
 		fmt.Fprintln(v, "Ctrl-C: Exit")
 		fmt.Fprintln(v, "Ctrl-S: Save")
 		fmt.Fprintln(v, "Ctrl-M: Save As")
+		fmt.Fprintln(v, "Ctrl-O: Toggle Overwrite")
 	}
 	return nil
 }
@@ -69,6 +70,11 @@ func saveAs(g *gocui.Gui, v *gocui.View) error {
 	if err := f.Sync(); err != nil {
 		return err
 	}
+	return nil
+}
+
+func newFile(g *gocui.Gui, v *gocui.View) error {
+	v.Clear()
 	return nil
 }
 
@@ -110,6 +116,10 @@ func saveMain(g *gocui.Gui, v *gocui.View) error {
 func quit(g *gocui.Gui, v *gocui.View) error {
 	return gocui.ErrQuit
 }
+func overwrite(g *gocui.Gui, v *gocui.View) error {
+	v.Overwrite = true
+	return nil
+}
 func keybindings(g *gocui.Gui) error {
 	if err := g.SetKeybinding("", gocui.KeyCtrlC, gocui.ModNone, quit); err != nil {
 		return err
@@ -118,6 +128,12 @@ func keybindings(g *gocui.Gui) error {
 		return err
 	}
 	if err := g.SetKeybinding("body", gocui.KeyCtrlM, gocui.ModNone, saveAs); err != nil {
+		return err
+	}
+	if err := g.SetKeybinding("body", gocui.KeyCtrlO, gocui.ModNone, overwrite); err != nil {
+		return err
+	}
+	if err := g.SetKeybinding("body", gocui.KeyCtrlN, gocui.ModNone, newFile); err != nil {
 		return err
 	}
 	return nil
