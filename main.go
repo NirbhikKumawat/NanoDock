@@ -15,6 +15,14 @@ var (
 	file string
 )
 
+func fileExists(filename string) bool {
+	_, err := os.Stat(filename)
+	if os.IsNotExist(err) {
+		return false
+	}
+	return err == nil
+}
+
 func layout(g *gocui.Gui) error {
 	maxX, maxY := g.Size()
 	if v, err := g.SetView("title", 0, 0, maxX-1, 2); err != nil {
@@ -34,13 +42,14 @@ func layout(g *gocui.Gui) error {
 		if _, err := g.SetCurrentView("body"); err != nil {
 			return err
 		}
-
-		b, err := os.ReadFile("Dockerfile")
-		if err != nil {
-			panic(err)
+		if fileExists(file) {
+			b, err := os.ReadFile(file)
+			if err != nil {
+				panic(err)
+			}
+			fmt.Fprintf(v, "%s", b)
 		}
-		fmt.Fprintf(v, "%s", b)
-		fmt.Fprintln(v, "Dockerfile Area")
+
 	}
 	if v, err := g.SetView("help", 2*maxX/3+1, 3, maxX-1, 3*maxY/4); err != nil {
 		if err != gocui.ErrUnknownView {
@@ -168,7 +177,7 @@ func runGocui(cmd *cobra.Command, args []string) {
 	}
 	file = dir + "/Dockerfile"
 	if len(args) > 0 {
-		file = args[0]
+		file = dir + "/" + args[0]
 	}
 	g, err := gocui.NewGui(gocui.OutputNormal)
 	if err != nil {
@@ -214,21 +223,4 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	/*g, err := gocui.NewGui(gocui.OutputNormal)
-	if err != nil {
-		log.Panicln(err)
-	}
-	defer g.Close()
-
-	g.Cursor = true
-	g.Mouse = true
-	g.SetManagerFunc(layout)
-
-	if err := keybindings(g); err != nil {
-		log.Panicln(err)
-	}
-
-	if err := g.MainLoop(); err != nil && err != gocui.ErrQuit {
-		log.Panicln(err)
-	}*/
 }
