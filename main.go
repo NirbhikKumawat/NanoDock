@@ -4,13 +4,15 @@ import (
 	"fmt"
 	"io"
 	"log"
-
-	//"log"
 	"os"
 	"path/filepath"
 
 	"github.com/jroimartin/gocui"
 	"github.com/spf13/cobra"
+)
+
+var (
+	file string
 )
 
 func layout(g *gocui.Gui) error {
@@ -19,7 +21,7 @@ func layout(g *gocui.Gui) error {
 		if err != gocui.ErrUnknownView {
 			return err
 		}
-		fmt.Fprintln(v, "Filename")
+		fmt.Fprintln(v, file)
 	}
 	if v, err := g.SetView("body", 0, 3, 2*maxX/3, maxY-1); err != nil {
 		if err != gocui.ErrUnknownView {
@@ -139,9 +141,35 @@ func keybindings(g *gocui.Gui) error {
 	if err := g.SetKeybinding("body", gocui.KeyCtrlN, gocui.ModNone, newFile); err != nil {
 		return err
 	}
+	if err := g.SetKeybinding("body", gocui.KeyCtrlA, gocui.ModNone,
+		func(g *gocui.Gui, v *gocui.View) error {
+			return saveView(g)
+		}); err != nil {
+		return err
+	}
+	if err := g.SetKeybinding("savename", gocui.KeyEnter, gocui.ModNone,
+		func(g *gocui.Gui, v *gocui.View) error {
+			if err := g.DeleteView("savename"); err != nil {
+				return err
+			}
+			if _, err := g.SetCurrentView("body"); err != nil {
+				return err
+			}
+			return nil
+		}); err != nil {
+		return err
+	}
 	return nil
 }
 func runGocui(cmd *cobra.Command, args []string) {
+	dir, err := os.Getwd()
+	if err != nil {
+		log.Fatal(err)
+	}
+	file = dir + "/Dockerfile"
+	if len(args) > 0 {
+		file = args[0]
+	}
 	g, err := gocui.NewGui(gocui.OutputNormal)
 	if err != nil {
 		log.Panicln(err)
@@ -157,6 +185,23 @@ func runGocui(cmd *cobra.Command, args []string) {
 		log.Panicln(err)
 	}
 }
+
+func saveView(g *gocui.Gui) error {
+	maxX, maxY := g.Size()
+	v, err := g.SetView("savename", 0, maxY/2-2, maxX, maxY/2+2)
+	if err != nil {
+		if err != gocui.ErrUnknownView {
+			return err
+		}
+		fmt.Fprintln(v, file)
+		v.Editable = true
+	}
+	if _, err := g.SetCurrentView("savename"); err != nil {
+		return err
+	}
+	return nil
+}
+
 func main() {
 	var rootCmd = &cobra.Command{
 		Use:   "nanodock [file]",
