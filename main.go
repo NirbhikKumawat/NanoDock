@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"regexp"
 
 	"github.com/jroimartin/gocui"
 	"github.com/spf13/cobra"
@@ -63,25 +64,7 @@ func layout(g *gocui.Gui) error {
 		fmt.Fprintln(v, "Commands for using the editor")
 		fmt.Fprintln(v, "Ctrl-C: Exit")
 		fmt.Fprintln(v, "Ctrl-S: Save")
-		fmt.Fprintln(v, "Ctrl-M: Save As")
 		fmt.Fprintln(v, "Ctrl-O: Toggle Overwrite")
-	}
-	return nil
-}
-
-func saveAs(g *gocui.Gui, v *gocui.View) error {
-	f, err := os.Create("dockerfile")
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	p := make([]byte, 100)
-	v.Rewind()
-	if _, err := io.CopyBuffer(f, v, p); err != nil {
-		return err
-	}
-	if err := f.Sync(); err != nil {
-		return err
 	}
 	return nil
 }
@@ -137,19 +120,13 @@ func keybindings(g *gocui.Gui) error {
 	if err := g.SetKeybinding("", gocui.KeyCtrlC, gocui.ModNone, quit); err != nil {
 		return err
 	}
-	if err := g.SetKeybinding("body", gocui.KeyCtrlS, gocui.ModNone, saveMain); err != nil {
-		return err
-	}
-	if err := g.SetKeybinding("body", gocui.KeyCtrlM, gocui.ModNone, saveAs); err != nil {
-		return err
-	}
 	if err := g.SetKeybinding("body", gocui.KeyCtrlO, gocui.ModNone, overwrite); err != nil {
 		return err
 	}
 	if err := g.SetKeybinding("body", gocui.KeyCtrlN, gocui.ModNone, newFile); err != nil {
 		return err
 	}
-	if err := g.SetKeybinding("body", gocui.KeyCtrlA, gocui.ModNone,
+	if err := g.SetKeybinding("body", gocui.KeyCtrlS, gocui.ModNone,
 		func(g *gocui.Gui, v *gocui.View) error {
 			return saveView(g)
 		}); err != nil {
@@ -164,7 +141,9 @@ func saveDeleteView(g *gocui.Gui, v *gocui.View) error {
 	if err := g.DeleteView("savename"); err != nil {
 		return err
 	}
-	file = v.Buffer()
+	s := v.Buffer()
+	re := regexp.MustCompile(`\s+`)
+	file = re.ReplaceAllString(s, "")
 	v, err := g.SetCurrentView("body")
 	if err != nil {
 		return err
