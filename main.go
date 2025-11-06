@@ -165,10 +165,11 @@ func saveDeleteView(g *gocui.Gui, v *gocui.View) error {
 		return err
 	}
 	file = v.Buffer()
-	if err := saveMain(g, v); err != nil {
+	v, err := g.SetCurrentView("body")
+	if err != nil {
 		return err
 	}
-	if _, err := g.SetCurrentView("body"); err != nil {
+	if err := saveMain(g, v); err != nil {
 		return err
 	}
 
@@ -220,7 +221,7 @@ func runGocui(cmd *cobra.Command, args []string) {
 
 func saveView(g *gocui.Gui) error {
 	maxX, maxY := g.Size()
-	v, err := g.SetView("savename", 0, maxY/2-2, maxX, maxY/2+2)
+	v, err := g.SetView("savename", 0, maxY/2-1, maxX, maxY/2+1)
 	if err != nil {
 		if err != gocui.ErrUnknownView {
 			return err
