@@ -5,7 +5,6 @@ import (
 	"io"
 	"log"
 	"os"
-	"path/filepath"
 
 	"github.com/jroimartin/gocui"
 	"github.com/spf13/cobra"
@@ -121,7 +120,7 @@ func saveMain(g *gocui.Gui, v *gocui.View) error {
 		return err
 	}
 
-	if err := os.Rename(f.Name(), filepath.Join(dir, "Dockerfile")); err != nil {
+	if err := os.Rename(f.Name(), file); err != nil {
 		os.Remove(f.Name())
 		return err
 	}
@@ -156,20 +155,44 @@ func keybindings(g *gocui.Gui) error {
 		}); err != nil {
 		return err
 	}
-	if err := g.SetKeybinding("savename", gocui.KeyEnter, gocui.ModNone,
-		func(g *gocui.Gui, v *gocui.View) error {
-			if err := g.DeleteView("savename"); err != nil {
-				return err
-			}
-			if _, err := g.SetCurrentView("body"); err != nil {
-				return err
-			}
-			return nil
-		}); err != nil {
+	if err := g.SetKeybinding("savename", gocui.KeyEnter, gocui.ModNone, saveDeleteView); err != nil {
 		return err
 	}
 	return nil
 }
+func saveDeleteView(g *gocui.Gui, v *gocui.View) error {
+	if err := g.DeleteView("savename"); err != nil {
+		return err
+	}
+	file = v.Buffer()
+	if err := saveMain(g, v); err != nil {
+		return err
+	}
+	if _, err := g.SetCurrentView("body"); err != nil {
+		return err
+	}
+
+	maxX, maxY := g.Size()
+	if v, err := g.SetView("body", 0, 3, 2*maxX/3, maxY-1); err != nil {
+		if err != gocui.ErrUnknownView {
+			return err
+		}
+		v.Title = "Dockerfile"
+		v.Editable = true
+		v.Wrap = true
+	}
+	if err := g.DeleteView("title"); err != nil {
+		return err
+	}
+	if v, err := g.SetView("title", 0, 0, maxX-1, 2); err != nil {
+		if err != gocui.ErrUnknownView {
+			return err
+		}
+		fmt.Fprintln(v, file)
+	}
+	return nil
+}
+
 func runGocui(cmd *cobra.Command, args []string) {
 	dir, err := os.Getwd()
 	if err != nil {
