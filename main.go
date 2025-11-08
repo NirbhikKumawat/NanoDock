@@ -161,6 +161,12 @@ func keybindings(g *gocui.Gui) error {
 	if err := g.SetKeybinding("", gocui.MouseWheelUp, gocui.ModNone, nothing); err != nil {
 		return err
 	}
+	if err := g.SetKeybinding("help", gocui.KeyCtrlH, gocui.ModNone, helpToBodyView); err != nil {
+		return err
+	}
+	if err := g.SetKeybinding("body", gocui.KeyCtrlH, gocui.ModNone, bodyToHelpView); err != nil {
+		return err
+	}
 	return nil
 }
 func saveDeleteView(g *gocui.Gui, v *gocui.View) error {
@@ -195,6 +201,25 @@ func saveDeleteView(g *gocui.Gui, v *gocui.View) error {
 			return err
 		}
 		fmt.Fprintln(v, file)
+	}
+	return nil
+}
+
+func helpToBodyView(g *gocui.Gui, v *gocui.View) error {
+	if _, err := g.SetCurrentView("body"); err == nil {
+		g.Mouse = true
+		g.Cursor = true
+		return nil
+	}
+	return nil
+}
+
+func bodyToHelpView(g *gocui.Gui, v *gocui.View) error {
+	if v, err := g.SetCurrentView("help"); err == nil {
+		v.Editable = false
+		g.Mouse = false
+		g.Cursor = false
+		return err
 	}
 	return nil
 }
