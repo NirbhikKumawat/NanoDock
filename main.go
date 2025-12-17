@@ -2,10 +2,10 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"regexp"
+	"strings"
 
 	"github.com/awesome-gocui/gocui"
 	"github.com/spf13/cobra"
@@ -14,6 +14,122 @@ import (
 var (
 	file string
 )
+
+const (
+	ColorReset   = "\033[0m"
+	ColorKeyword = "\033[1;36m"
+	ColorComment = "\033[0;32m"
+	ColorString  = "\033[0;33m"
+)
+
+var dockerfileKeywords = []string{
+	"FROM", "RUN", "CMD", "LABEL", "MAINTAINER", "EXPOSE", "ENV",
+	"ADD", "COPY", "ENTRYPOINT", "VOLUME", "USER", "WORKDIR",
+	"ARG", "ONBUILD", "STOPSIGNAL", "HEALTHCHECK", "SHELL",
+}
+
+type DockerfileEditor struct {
+}
+
+func (e DockerfileEditor) Edit(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
+	switch {
+	case ch != 0 && mod == 0:
+		v.EditWrite(ch)
+		e.applySyntaxHighlighting(v)
+	case key == gocui.KeySpace:
+		v.EditWrite(' ')
+		e.applySyntaxHighlighting(v)
+	case key == gocui.KeyBackspace || key == gocui.KeyBackspace2:
+		v.EditDelete(true)
+		e.applySyntaxHighlighting(v)
+	case key == gocui.KeyDelete:
+		v.EditDelete(false)
+		e.applySyntaxHighlighting(v)
+	case key == gocui.KeyInsert:
+		v.Overwrite = !v.Overwrite
+	case key == gocui.KeyEnter:
+		v.EditNewLine()
+		e.applySyntaxHighlighting(v)
+	case key == gocui.KeyArrowRight:
+		v.MoveCursor(1, 0)
+	case key == gocui.KeyArrowLeft:
+		v.MoveCursor(-1, 0)
+	case key == gocui.KeyHome:
+		_, cy := v.Cursor()
+		v.SetCursor(0, cy)
+	case key == gocui.KeyEnd:
+		_, cy := v.Cursor()
+		line, _ := v.Line(cy)
+		v.SetCursor(len(line), cy)
+	}
+}
+
+func (e DockerfileEditor) applySyntaxHighlighting(v *gocui.View) {
+	cx, cy := v.Cursor()
+	ox, oy := v.Origin()
+
+	content := stripAnsiCodes(v.Buffer())
+
+	highlighted := highlightDockerfile(content)
+
+	v.Clear()
+	fmt.Fprint(v, highlighted)
+
+	v.SetCursor(cx, cy)
+	v.SetOrigin(ox, oy)
+}
+
+func stripAnsiCodes(text string) string {
+	ansiRegex := regexp.MustCompile(`\x1b\[[0-9;]*m`)
+	return ansiRegex.ReplaceAllString(text, "")
+}
+
+func highlightDockerfile(content string) string {
+	lines := strings.Split(content, "\n")
+	var highlightedLines []string
+
+	for _, line := range lines {
+		highlightedLines = append(highlightedLines, highlightLine(line))
+	}
+	return strings.Join(highlightedLines, "\n")
+}
+
+func highlightLine(line string) string {
+	trimmedLine := strings.TrimSpace(line)
+
+	if strings.HasPrefix(trimmedLine, "#") {
+		return ColorComment + line + ColorReset
+	}
+
+	for _, keyword := range dockerfileKeywords {
+		if strings.HasPrefix(strings.ToUpper(trimmedLine), keyword) {
+			keyWordEnd := len(keyword)
+			if len(trimmedLine) >= keyWordEnd {
+				leadingSpaces := len(line) - len(trimmedLine)
+				actualKeyword := line[leadingSpaces : leadingSpaces+keyWordEnd]
+				rest := ""
+				if len(line) > leadingSpaces+keyWordEnd {
+					rest = line[leadingSpaces+keyWordEnd:]
+				}
+
+				highlighted := line[:leadingSpaces] + ColorKeyword + actualKeyword + ColorReset
+
+				rest = highlightStrings(rest)
+
+				return highlighted + rest
+			}
+		}
+	}
+	return highlightStrings(line)
+}
+
+func highlightStrings(text string) string {
+	stringRegex := regexp.MustCompile(`("[^"]*"|'[^']*')`)
+
+	return stringRegex.ReplaceAllStringFunc(text, func(match string) string {
+		return ColorString + match + ColorReset
+	})
+}
 
 func fileExists(filename string) bool {
 	_, err := os.Stat(filename)
@@ -38,6 +154,7 @@ func layout(g *gocui.Gui) error {
 		v.Title = "Dockerfile"
 		v.Editable = true
 		v.Wrap = true
+		v.Editor = DockerfileEditor{}
 
 		if _, err := g.SetCurrentView("body"); err != nil {
 			return err
@@ -47,7 +164,10 @@ func layout(g *gocui.Gui) error {
 			if err != nil {
 				panic(err)
 			}
-			fmt.Fprintf(v, "%s", b)
+
+			content := string(b)
+			highlighted := highlightDockerfile(content)
+			fmt.Fprint(v, highlighted)
 		}
 
 	}
@@ -101,9 +221,9 @@ func saveMain(g *gocui.Gui, v *gocui.View) error {
 		return err
 	}
 
-	p := make([]byte, 512)
-	v.Rewind()
-	if _, err := io.CopyBuffer(f, v, p); err != nil {
+	content := stripAnsiCodes(v.Buffer())
+
+	if _, err := f.WriteString(content); err != nil {
 		f.Close()
 		os.Remove(f.Name())
 		return err
@@ -133,7 +253,7 @@ func quit(g *gocui.Gui, v *gocui.View) error {
 	return gocui.ErrQuit
 }
 func overwrite(g *gocui.Gui, v *gocui.View) error {
-	v.Overwrite = true
+	v.Overwrite = !v.Overwrite
 	return nil
 }
 func keybindings(g *gocui.Gui) error {
@@ -192,6 +312,7 @@ func saveDeleteView(g *gocui.Gui, v *gocui.View) error {
 		v.Title = "Dockerfile"
 		v.Editable = true
 		v.Wrap = true
+		v.Editor = DockerfileEditor{}
 	}
 	if err := g.DeleteView("title"); err != nil {
 		return err
