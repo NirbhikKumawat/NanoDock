@@ -273,7 +273,12 @@ func getLine(g *gocui.Gui, v *gocui.View) error {
 		if !errors.Is(err, gocui.ErrUnknownView) {
 			return err
 		}
-		fmt.Fprintln(v, l)
+		fmt.Fprintln(v, ColorKeyword+l+ColorReset)
+		/*for _, keyword := range dockerfileKeywords {
+			if l == keyword {
+				fmt.Fprintln(v, info[keyword])
+			}
+		}*/
 		if _, err := g.SetCurrentView("information"); err != nil {
 			return err
 		}
@@ -281,7 +286,13 @@ func getLine(g *gocui.Gui, v *gocui.View) error {
 	return nil
 }
 func deleteInformationView(g *gocui.Gui, v *gocui.View) error {
+	if !viewExist(g, "information") {
+		return nil
+	}
 	if err := g.DeleteView("information"); err != nil {
+		return err
+	}
+	if err := bodyToHelpView(g, v); err != nil {
 		return err
 	}
 	return nil
@@ -415,14 +426,14 @@ func bodyToHelpView(g *gocui.Gui, v *gocui.View) error {
 		if _, err := g.SetCurrentView("information"); err == nil {
 			v.Editable = false
 			g.Mouse = false
-			g.Cursor = true
+			g.Cursor = false
 			return err
 		}
 	} else {
 		if v, err := g.SetCurrentView("help"); err == nil {
 			v.Editable = false
 			g.Mouse = false
-			g.Cursor = true
+			g.Cursor = false
 			return err
 		}
 	}
