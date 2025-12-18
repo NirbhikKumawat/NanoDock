@@ -175,6 +175,9 @@ func layout(g *gocui.Gui) error {
 		if err != gocui.ErrUnknownView {
 			return err
 		}
+		v.Highlight = true
+		v.SelBgColor = gocui.ColorGreen
+		v.SelFgColor = gocui.ColorBlack
 		fmt.Fprintln(v, "\033[32mADD")
 		fmt.Fprintln(v, "ARG")
 		fmt.Fprintln(v, "CMD")
@@ -202,6 +205,7 @@ func layout(g *gocui.Gui) error {
 		fmt.Fprintln(v, "Ctrl-C: Exit")
 		fmt.Fprintln(v, "Ctrl-S: Save")
 		fmt.Fprintln(v, "Ctrl-O: Toggle Overwrite")
+		fmt.Fprintln(v, "Ctrl-H: Toggle Help")
 	}
 	return nil
 }
@@ -256,7 +260,37 @@ func overwrite(g *gocui.Gui, v *gocui.View) error {
 	v.Overwrite = !v.Overwrite
 	return nil
 }
+func cursorDown(g *gocui.Gui, v *gocui.View) error {
+	if v != nil {
+		cx, cy := v.Cursor()
+		if err := v.SetCursor(cx, cy+1); err != nil {
+			ox, oy := v.Origin()
+			if err := v.SetOrigin(ox, oy+1); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+func cursorUp(g *gocui.Gui, v *gocui.View) error {
+	if v != nil {
+		ox, oy := v.Origin()
+		cx, cy := v.Cursor()
+		if err := v.SetCursor(cx, cy-1); err != nil && oy > 0 {
+			if err := v.SetOrigin(ox, oy-1); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
 func keybindings(g *gocui.Gui) error {
+	if err := g.SetKeybinding("help", gocui.KeyArrowDown, gocui.ModNone, cursorDown); err != nil {
+		return err
+	}
+	if err := g.SetKeybinding("help", gocui.KeyArrowUp, gocui.ModNone, cursorUp); err != nil {
+		return err
+	}
 	if err := g.SetKeybinding("", gocui.KeyCtrlC, gocui.ModNone, quit); err != nil {
 		return err
 	}
@@ -328,7 +362,7 @@ func saveDeleteView(g *gocui.Gui, v *gocui.View) error {
 
 func helpToBodyView(g *gocui.Gui, v *gocui.View) error {
 	if _, err := g.SetCurrentView("body"); err == nil {
-		g.Mouse = true
+		g.Mouse = false
 		g.Cursor = true
 		return nil
 	}
@@ -339,7 +373,7 @@ func bodyToHelpView(g *gocui.Gui, v *gocui.View) error {
 	if v, err := g.SetCurrentView("help"); err == nil {
 		v.Editable = false
 		g.Mouse = false
-		g.Cursor = false
+		g.Cursor = true
 		return err
 	}
 	return nil
@@ -360,7 +394,7 @@ func runGocui(cmd *cobra.Command, args []string) {
 	}
 	defer g.Close()
 	g.Cursor = true
-	g.Mouse = true
+	g.Mouse = false
 	g.SetManagerFunc(layout)
 	if err := keybindings(g); err != nil {
 		log.Panicln(err)
