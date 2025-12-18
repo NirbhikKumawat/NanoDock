@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -260,6 +261,37 @@ func overwrite(g *gocui.Gui, v *gocui.View) error {
 	v.Overwrite = !v.Overwrite
 	return nil
 }
+func getLine(g *gocui.Gui, v *gocui.View) error {
+	var l string
+	var err error
+	_, cy := v.Cursor()
+	if l, err = v.Line(cy); err != nil {
+		return err
+	}
+	maxX, maxY := g.Size()
+	if v, err := g.SetView("information", 2*maxX/3+1, 3, maxX-1, 3*maxY/4, 0); err != nil {
+		if !errors.Is(err, gocui.ErrUnknownView) {
+			return err
+		}
+		fmt.Fprintln(v, l)
+		if _, err := g.SetCurrentView("information"); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+func deleteInformationView(g *gocui.Gui, v *gocui.View) error {
+	if err := g.DeleteView("information"); err != nil {
+		return err
+	}
+	return nil
+}
+func viewExist(g *gocui.Gui, s string) bool {
+	if _, err := g.View(s); err != nil {
+		return false
+	}
+	return true
+}
 func cursorDown(g *gocui.Gui, v *gocui.View) error {
 	if v != nil {
 		cx, cy := v.Cursor()
@@ -285,6 +317,12 @@ func cursorUp(g *gocui.Gui, v *gocui.View) error {
 	return nil
 }
 func keybindings(g *gocui.Gui) error {
+	if err := g.SetKeybinding("", gocui.KeyCtrlI, gocui.ModNone, deleteInformationView); err != nil {
+		return err
+	}
+	if err := g.SetKeybinding("help", gocui.KeyEnter, gocui.ModNone, getLine); err != nil {
+		return err
+	}
 	if err := g.SetKeybinding("help", gocui.KeyArrowDown, gocui.ModNone, cursorDown); err != nil {
 		return err
 	}
@@ -316,6 +354,9 @@ func keybindings(g *gocui.Gui) error {
 		return err
 	}
 	if err := g.SetKeybinding("help", gocui.KeyCtrlH, gocui.ModNone, helpToBodyView); err != nil {
+		return err
+	}
+	if err := g.SetKeybinding("information", gocui.KeyCtrlH, gocui.ModNone, helpToBodyView); err != nil {
 		return err
 	}
 	if err := g.SetKeybinding("body", gocui.KeyCtrlH, gocui.ModNone, bodyToHelpView); err != nil {
@@ -370,11 +411,20 @@ func helpToBodyView(g *gocui.Gui, v *gocui.View) error {
 }
 
 func bodyToHelpView(g *gocui.Gui, v *gocui.View) error {
-	if v, err := g.SetCurrentView("help"); err == nil {
-		v.Editable = false
-		g.Mouse = false
-		g.Cursor = true
-		return err
+	if viewExist(g, "information") {
+		if _, err := g.SetCurrentView("information"); err == nil {
+			v.Editable = false
+			g.Mouse = false
+			g.Cursor = true
+			return err
+		}
+	} else {
+		if v, err := g.SetCurrentView("help"); err == nil {
+			v.Editable = false
+			g.Mouse = false
+			g.Cursor = true
+			return err
+		}
 	}
 	return nil
 }
