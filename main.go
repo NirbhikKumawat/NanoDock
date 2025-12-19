@@ -1232,6 +1232,8 @@ func getLine(g *gocui.Gui, v *gocui.View) error {
 		}
 		fmt.Fprintln(v, ColorKeyword+l+ColorReset)
 		v.Wrap = true
+		g.Cursor = true
+		v.Editable = true
 		for _, keyword := range dockerfileKeywords {
 			if l == keyword {
 				fmt.Fprintln(v, info[keyword])
@@ -1328,6 +1330,12 @@ func keybindings(g *gocui.Gui) error {
 	if err := g.SetKeybinding("information", gocui.KeyCtrlH, gocui.ModNone, helpToBodyView); err != nil {
 		return err
 	}
+	/*if err := g.SetKeybinding("information", gocui.KeyArrowDown, gocui.ModNone, cursorDown); err != nil {
+		return err
+	}
+	if err := g.SetKeybinding("information", gocui.KeyArrowUp, gocui.ModNone, cursorUp); err != nil {
+		return err
+	}*/
 	if err := g.SetKeybinding("body", gocui.KeyCtrlH, gocui.ModNone, bodyToHelpView); err != nil {
 		return err
 	}
