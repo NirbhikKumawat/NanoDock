@@ -26,7 +26,12 @@ nanodock -h
 
 ### Basic Commands
 
-### Keyboard Shortcuts
+__Ctrl+H__ - Toggle main and help  
+__Ctrl+I__ - Close current help  
+__Ctrl+S__ - Save file  
+__Ctrl+N__ - New File  
+__Ctrl+O__ - Toggle overwrite  
+__Ctrl+C__ - Exit  
 
 ## Acknowledgements
 - Inspired by [Nano](https://www.nano-editor.org/)
@@ -35,8 +40,8 @@ nanodock -h
 ## Roadmap
 - [x] Basic editing functionality
 - [x] Syntax Highlighting
+- [x] Dockerfile help bar
 - [ ] Undo-Redo
-- [ ] Dockerfile help bar
 - [ ] Linting
 - [ ] More features
 - [ ] Updating README

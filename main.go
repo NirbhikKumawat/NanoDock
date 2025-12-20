@@ -35,39 +35,7 @@ var dockerfileKeywords = []string{
 type DockerfileEditor struct {
 }
 
-func (e DockerfileEditor) Edit(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
-	switch {
-	case ch != 0 && mod == 0:
-		v.EditWrite(ch)
-		e.applySyntaxHighlighting(v)
-	case key == gocui.KeySpace:
-		v.EditWrite(' ')
-		e.applySyntaxHighlighting(v)
-	case key == gocui.KeyBackspace || key == gocui.KeyBackspace2:
-		v.EditDelete(true)
-		e.applySyntaxHighlighting(v)
-	case key == gocui.KeyDelete:
-		v.EditDelete(false)
-		e.applySyntaxHighlighting(v)
-	case key == gocui.KeyInsert:
-		v.Overwrite = !v.Overwrite
-	case key == gocui.KeyEnter:
-		v.EditNewLine()
-		e.applySyntaxHighlighting(v)
-	case key == gocui.KeyArrowRight:
-		v.MoveCursor(1, 0)
-	case key == gocui.KeyArrowLeft:
-		v.MoveCursor(-1, 0)
-	case key == gocui.KeyHome:
-		_, cy := v.Cursor()
-		v.SetCursor(0, cy)
-	case key == gocui.KeyEnd:
-		_, cy := v.Cursor()
-		line, _ := v.Line(cy)
-		v.SetCursor(len(line), cy)
-	}
-}
-
+// Syntax Highlighting
 func (e DockerfileEditor) applySyntaxHighlighting(v *gocui.View) {
 	cx, cy := v.Cursor()
 	ox, oy := v.Origin()
@@ -82,12 +50,10 @@ func (e DockerfileEditor) applySyntaxHighlighting(v *gocui.View) {
 	v.SetCursor(cx, cy)
 	v.SetOrigin(ox, oy)
 }
-
 func stripAnsiCodes(text string) string {
 	ansiRegex := regexp.MustCompile(`\x1b\[[0-9;]*m`)
 	return ansiRegex.ReplaceAllString(text, "")
 }
-
 func highlightDockerfile(content string) string {
 	lines := strings.Split(content, "\n")
 	var highlightedLines []string
@@ -97,7 +63,6 @@ func highlightDockerfile(content string) string {
 	}
 	return strings.Join(highlightedLines, "\n")
 }
-
 func highlightLine(line string) string {
 	trimmedLine := strings.TrimLeft(line, " \t\n\r")
 
@@ -134,7 +99,6 @@ func highlightLine(line string) string {
 	}
 	return highlightStrings(line)
 }
-
 func highlightStrings(text string) string {
 	stringRegex := regexp.MustCompile(`("[^"]*"|'[^']*')`)
 
@@ -143,6 +107,122 @@ func highlightStrings(text string) string {
 	})
 }
 
+// Cursor navigation
+func cursorDown(g *gocui.Gui, v *gocui.View) error {
+	if v != nil {
+		cx, cy := v.Cursor()
+		if err := v.SetCursor(cx, cy+1); err != nil {
+			ox, oy := v.Origin()
+			if err := v.SetOrigin(ox, oy+1); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+func cursorUp(g *gocui.Gui, v *gocui.View) error {
+	if v != nil {
+		ox, oy := v.Origin()
+		cx, cy := v.Cursor()
+		if err := v.SetCursor(cx, cy-1); err != nil && oy > 0 {
+			if err := v.SetOrigin(ox, oy-1); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// utility functions
+func overwrite(g *gocui.Gui, v *gocui.View) error {
+	v.Overwrite = !v.Overwrite
+	return nil
+}
+func nothing(g *gocui.Gui, v *gocui.View) error {
+	return nil
+}
+func quit(g *gocui.Gui, v *gocui.View) error {
+	return gocui.ErrQuit
+}
+
+// help bar
+func getLine(g *gocui.Gui, v *gocui.View) error {
+	var l string
+	var err error
+	_, cy := v.Cursor()
+	if l, err = v.Line(cy); err != nil {
+		return err
+	}
+	maxX, maxY := g.Size()
+	if v, err := g.SetView("information", 2*maxX/3+1, 3, maxX-1, 3*maxY/4, 0); err != nil {
+		if !errors.Is(err, gocui.ErrUnknownView) {
+			return err
+		}
+		fmt.Fprintln(v, ColorKeyword+l+ColorReset)
+		v.Wrap = true
+		g.Cursor = true
+		v.Editable = true
+		for _, keyword := range dockerfileKeywords {
+			if l == keyword {
+				fmt.Fprintln(v, dockerfile.Info[keyword])
+			}
+		}
+		if _, err := g.SetCurrentView("information"); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+func helpToBodyView(g *gocui.Gui, v *gocui.View) error {
+	if _, err := g.SetCurrentView("body"); err == nil {
+		g.Mouse = false
+		g.Cursor = true
+		return nil
+	}
+	return nil
+}
+func bodyToHelpView(g *gocui.Gui, v *gocui.View) error {
+	if viewExist(g, "information") {
+		if _, err := g.SetCurrentView("information"); err == nil {
+			v.Editable = false
+			g.Mouse = false
+			g.Cursor = false
+			return err
+		}
+	} else {
+		if v, err := g.SetCurrentView("help"); err == nil {
+			v.Editable = false
+			g.Mouse = false
+			g.Cursor = false
+			return err
+		}
+	}
+	return nil
+}
+func deleteInformationView(g *gocui.Gui, v *gocui.View) error {
+	if !viewExist(g, "information") {
+		return nil
+	}
+	if err := g.DeleteView("information"); err != nil {
+		return err
+	}
+	if err := bodyToHelpView(g, v); err != nil {
+		return err
+	}
+	return nil
+}
+func viewExist(g *gocui.Gui, s string) bool {
+	if _, err := g.View(s); err != nil {
+		return false
+	}
+	return true
+}
+
+// new file
+func newFile(g *gocui.Gui, v *gocui.View) error {
+	v.Clear()
+	return nil
+}
 func fileExists(filename string) bool {
 	_, err := os.Stat(filename)
 	if os.IsNotExist(err) {
@@ -151,6 +231,180 @@ func fileExists(filename string) bool {
 	return err == nil
 }
 
+// save file
+func saveView(g *gocui.Gui) error {
+	maxX, maxY := g.Size()
+	v, err := g.SetView("savename", 0, maxY/2-1, maxX, maxY/2+1, 0)
+	if err != nil {
+		if err != gocui.ErrUnknownView {
+			return err
+		}
+		fmt.Fprintln(v, file)
+		v.Editable = true
+	}
+	if _, err := g.SetCurrentView("savename"); err != nil {
+		return err
+	}
+	return nil
+}
+func saveDeleteView(g *gocui.Gui, v *gocui.View) error {
+	if err := g.DeleteView("savename"); err != nil {
+		return err
+	}
+	s := v.Buffer()
+	re := regexp.MustCompile(`\s+`)
+	file = re.ReplaceAllString(s, "")
+	v, err := g.SetCurrentView("body")
+	if err != nil {
+		return err
+	}
+	if err := saveMain(g, v); err != nil {
+		return err
+	}
+
+	maxX, maxY := g.Size()
+	if v, err := g.SetView("body", 0, 3, 2*maxX/3, maxY-1, 0); err != nil {
+		if err != gocui.ErrUnknownView {
+			return err
+		}
+		v.Title = "Dockerfile"
+		v.Editable = true
+		v.Wrap = true
+		v.Editor = DockerfileEditor{}
+	}
+	if err := g.DeleteView("title"); err != nil {
+		return err
+	}
+	if v, err := g.SetView("title", 0, 0, maxX-1, 2, 0); err != nil {
+		if err != gocui.ErrUnknownView {
+			return err
+		}
+		fmt.Fprintln(v, file)
+	}
+	return nil
+}
+func saveMain(g *gocui.Gui, v *gocui.View) error {
+	dir, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	f, err := os.CreateTemp(dir, "Dockerfile")
+	if err != nil {
+		return err
+	}
+
+	content := stripAnsiCodes(v.Buffer())
+
+	if _, err := f.WriteString(content); err != nil {
+		f.Close()
+		os.Remove(f.Name())
+		return err
+	}
+
+	if err := f.Sync(); err != nil {
+		f.Close()
+		os.Remove(f.Name())
+		return err
+	}
+
+	if err := f.Close(); err != nil {
+		os.Remove(f.Name())
+		return err
+	}
+
+	if err := os.Rename(f.Name(), file); err != nil {
+		os.Remove(f.Name())
+		return err
+	}
+	return nil
+}
+
+func keybindings(g *gocui.Gui) error {
+	if err := g.SetKeybinding("", gocui.KeyCtrlI, gocui.ModNone, deleteInformationView); err != nil {
+		return err
+	}
+	if err := g.SetKeybinding("help", gocui.KeyEnter, gocui.ModNone, getLine); err != nil {
+		return err
+	}
+	if err := g.SetKeybinding("help", gocui.KeyArrowDown, gocui.ModNone, cursorDown); err != nil {
+		return err
+	}
+	if err := g.SetKeybinding("help", gocui.KeyArrowUp, gocui.ModNone, cursorUp); err != nil {
+		return err
+	}
+	if err := g.SetKeybinding("", gocui.KeyCtrlC, gocui.ModNone, quit); err != nil {
+		return err
+	}
+	if err := g.SetKeybinding("body", gocui.KeyCtrlO, gocui.ModNone, overwrite); err != nil {
+		return err
+	}
+	if err := g.SetKeybinding("body", gocui.KeyCtrlN, gocui.ModNone, newFile); err != nil {
+		return err
+	}
+	if err := g.SetKeybinding("body", gocui.KeyCtrlS, gocui.ModNone,
+		func(g *gocui.Gui, v *gocui.View) error {
+			return saveView(g)
+		}); err != nil {
+		return err
+	}
+	if err := g.SetKeybinding("savename", gocui.KeyEnter, gocui.ModNone, saveDeleteView); err != nil {
+		return err
+	}
+	if err := g.SetKeybinding("", gocui.MouseWheelDown, gocui.ModNone, nothing); err != nil {
+		return err
+	}
+	if err := g.SetKeybinding("", gocui.MouseWheelUp, gocui.ModNone, nothing); err != nil {
+		return err
+	}
+	if err := g.SetKeybinding("help", gocui.KeyCtrlH, gocui.ModNone, helpToBodyView); err != nil {
+		return err
+	}
+	if err := g.SetKeybinding("information", gocui.KeyCtrlH, gocui.ModNone, helpToBodyView); err != nil {
+		return err
+	}
+	/*if err := g.SetKeybinding("information", gocui.KeyArrowDown, gocui.ModNone, cursorDown); err != nil {
+		return err
+	}
+	if err := g.SetKeybinding("information", gocui.KeyArrowUp, gocui.ModNone, cursorUp); err != nil {
+		return err
+	}*/
+	if err := g.SetKeybinding("body", gocui.KeyCtrlH, gocui.ModNone, bodyToHelpView); err != nil {
+		return err
+	}
+	return nil
+}
+func (e DockerfileEditor) Edit(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
+	switch {
+	case ch != 0 && mod == 0:
+		v.EditWrite(ch)
+		e.applySyntaxHighlighting(v)
+	case key == gocui.KeySpace:
+		v.EditWrite(' ')
+		e.applySyntaxHighlighting(v)
+	case key == gocui.KeyBackspace || key == gocui.KeyBackspace2:
+		v.EditDelete(true)
+		e.applySyntaxHighlighting(v)
+	case key == gocui.KeyDelete:
+		v.EditDelete(false)
+		e.applySyntaxHighlighting(v)
+	case key == gocui.KeyInsert:
+		v.Overwrite = !v.Overwrite
+	case key == gocui.KeyEnter:
+		v.EditNewLine()
+		e.applySyntaxHighlighting(v)
+	case key == gocui.KeyArrowRight:
+		v.MoveCursor(1, 0)
+	case key == gocui.KeyArrowLeft:
+		v.MoveCursor(-1, 0)
+	case key == gocui.KeyHome:
+		_, cy := v.Cursor()
+		v.SetCursor(0, cy)
+	case key == gocui.KeyEnd:
+		_, cy := v.Cursor()
+		line, _ := v.Line(cy)
+		v.SetCursor(len(line), cy)
+	}
+}
 func layout(g *gocui.Gui) error {
 	maxX, maxY := g.Size()
 	if v, err := g.SetView("title", 0, 0, maxX-1, 2, 0); err != nil {
@@ -216,250 +470,14 @@ func layout(g *gocui.Gui) error {
 		fmt.Fprintln(v, "Commands for using the editor")
 		fmt.Fprintln(v, "Ctrl-C: Exit")
 		fmt.Fprintln(v, "Ctrl-S: Save")
+		fmt.Fprintln(v, "Ctrl-N: New file")
 		fmt.Fprintln(v, "Ctrl-O: Toggle Overwrite")
 		fmt.Fprintln(v, "Ctrl-H: Toggle Help")
-	}
-	return nil
-}
+		fmt.Fprintln(v, "Ctrl-I: Close information tab")
 
-func newFile(g *gocui.Gui, v *gocui.View) error {
-	v.Clear()
-	return nil
-}
-
-func saveMain(g *gocui.Gui, v *gocui.View) error {
-	dir, err := os.Getwd()
-	if err != nil {
-		return err
-	}
-	f, err := os.CreateTemp(dir, "Dockerfile")
-	if err != nil {
-		return err
-	}
-
-	content := stripAnsiCodes(v.Buffer())
-
-	if _, err := f.WriteString(content); err != nil {
-		f.Close()
-		os.Remove(f.Name())
-		return err
-	}
-
-	if err := f.Sync(); err != nil {
-		f.Close()
-		os.Remove(f.Name())
-		return err
-	}
-
-	if err := f.Close(); err != nil {
-		os.Remove(f.Name())
-		return err
-	}
-
-	if err := os.Rename(f.Name(), file); err != nil {
-		os.Remove(f.Name())
-		return err
 	}
 	return nil
 }
-func nothing(g *gocui.Gui, v *gocui.View) error {
-	return nil
-}
-func quit(g *gocui.Gui, v *gocui.View) error {
-	return gocui.ErrQuit
-}
-func overwrite(g *gocui.Gui, v *gocui.View) error {
-	v.Overwrite = !v.Overwrite
-	return nil
-}
-func getLine(g *gocui.Gui, v *gocui.View) error {
-	var l string
-	var err error
-	_, cy := v.Cursor()
-	if l, err = v.Line(cy); err != nil {
-		return err
-	}
-	maxX, maxY := g.Size()
-	if v, err := g.SetView("information", 2*maxX/3+1, 3, maxX-1, 3*maxY/4, 0); err != nil {
-		if !errors.Is(err, gocui.ErrUnknownView) {
-			return err
-		}
-		fmt.Fprintln(v, ColorKeyword+l+ColorReset)
-		v.Wrap = true
-		g.Cursor = true
-		v.Editable = true
-		for _, keyword := range dockerfileKeywords {
-			if l == keyword {
-				fmt.Fprintln(v, dockerfile.Info[keyword])
-			}
-		}
-		if _, err := g.SetCurrentView("information"); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-func deleteInformationView(g *gocui.Gui, v *gocui.View) error {
-	if !viewExist(g, "information") {
-		return nil
-	}
-	if err := g.DeleteView("information"); err != nil {
-		return err
-	}
-	if err := bodyToHelpView(g, v); err != nil {
-		return err
-	}
-	return nil
-}
-func viewExist(g *gocui.Gui, s string) bool {
-	if _, err := g.View(s); err != nil {
-		return false
-	}
-	return true
-}
-func cursorDown(g *gocui.Gui, v *gocui.View) error {
-	if v != nil {
-		cx, cy := v.Cursor()
-		if err := v.SetCursor(cx, cy+1); err != nil {
-			ox, oy := v.Origin()
-			if err := v.SetOrigin(ox, oy+1); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-func cursorUp(g *gocui.Gui, v *gocui.View) error {
-	if v != nil {
-		ox, oy := v.Origin()
-		cx, cy := v.Cursor()
-		if err := v.SetCursor(cx, cy-1); err != nil && oy > 0 {
-			if err := v.SetOrigin(ox, oy-1); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-func keybindings(g *gocui.Gui) error {
-	if err := g.SetKeybinding("", gocui.KeyCtrlI, gocui.ModNone, deleteInformationView); err != nil {
-		return err
-	}
-	if err := g.SetKeybinding("help", gocui.KeyEnter, gocui.ModNone, getLine); err != nil {
-		return err
-	}
-	if err := g.SetKeybinding("help", gocui.KeyArrowDown, gocui.ModNone, cursorDown); err != nil {
-		return err
-	}
-	if err := g.SetKeybinding("help", gocui.KeyArrowUp, gocui.ModNone, cursorUp); err != nil {
-		return err
-	}
-	if err := g.SetKeybinding("", gocui.KeyCtrlC, gocui.ModNone, quit); err != nil {
-		return err
-	}
-	if err := g.SetKeybinding("body", gocui.KeyCtrlO, gocui.ModNone, overwrite); err != nil {
-		return err
-	}
-	if err := g.SetKeybinding("body", gocui.KeyCtrlN, gocui.ModNone, newFile); err != nil {
-		return err
-	}
-	if err := g.SetKeybinding("body", gocui.KeyCtrlS, gocui.ModNone,
-		func(g *gocui.Gui, v *gocui.View) error {
-			return saveView(g)
-		}); err != nil {
-		return err
-	}
-	if err := g.SetKeybinding("savename", gocui.KeyEnter, gocui.ModNone, saveDeleteView); err != nil {
-		return err
-	}
-	if err := g.SetKeybinding("", gocui.MouseWheelDown, gocui.ModNone, nothing); err != nil {
-		return err
-	}
-	if err := g.SetKeybinding("", gocui.MouseWheelUp, gocui.ModNone, nothing); err != nil {
-		return err
-	}
-	if err := g.SetKeybinding("help", gocui.KeyCtrlH, gocui.ModNone, helpToBodyView); err != nil {
-		return err
-	}
-	if err := g.SetKeybinding("information", gocui.KeyCtrlH, gocui.ModNone, helpToBodyView); err != nil {
-		return err
-	}
-	/*if err := g.SetKeybinding("information", gocui.KeyArrowDown, gocui.ModNone, cursorDown); err != nil {
-		return err
-	}
-	if err := g.SetKeybinding("information", gocui.KeyArrowUp, gocui.ModNone, cursorUp); err != nil {
-		return err
-	}*/
-	if err := g.SetKeybinding("body", gocui.KeyCtrlH, gocui.ModNone, bodyToHelpView); err != nil {
-		return err
-	}
-	return nil
-}
-func saveDeleteView(g *gocui.Gui, v *gocui.View) error {
-	if err := g.DeleteView("savename"); err != nil {
-		return err
-	}
-	s := v.Buffer()
-	re := regexp.MustCompile(`\s+`)
-	file = re.ReplaceAllString(s, "")
-	v, err := g.SetCurrentView("body")
-	if err != nil {
-		return err
-	}
-	if err := saveMain(g, v); err != nil {
-		return err
-	}
-
-	maxX, maxY := g.Size()
-	if v, err := g.SetView("body", 0, 3, 2*maxX/3, maxY-1, 0); err != nil {
-		if err != gocui.ErrUnknownView {
-			return err
-		}
-		v.Title = "Dockerfile"
-		v.Editable = true
-		v.Wrap = true
-		v.Editor = DockerfileEditor{}
-	}
-	if err := g.DeleteView("title"); err != nil {
-		return err
-	}
-	if v, err := g.SetView("title", 0, 0, maxX-1, 2, 0); err != nil {
-		if err != gocui.ErrUnknownView {
-			return err
-		}
-		fmt.Fprintln(v, file)
-	}
-	return nil
-}
-
-func helpToBodyView(g *gocui.Gui, v *gocui.View) error {
-	if _, err := g.SetCurrentView("body"); err == nil {
-		g.Mouse = false
-		g.Cursor = true
-		return nil
-	}
-	return nil
-}
-
-func bodyToHelpView(g *gocui.Gui, v *gocui.View) error {
-	if viewExist(g, "information") {
-		if _, err := g.SetCurrentView("information"); err == nil {
-			v.Editable = false
-			g.Mouse = false
-			g.Cursor = false
-			return err
-		}
-	} else {
-		if v, err := g.SetCurrentView("help"); err == nil {
-			v.Editable = false
-			g.Mouse = false
-			g.Cursor = false
-			return err
-		}
-	}
-	return nil
-}
-
 func runGocui(cmd *cobra.Command, args []string) {
 	dir, err := os.Getwd()
 	if err != nil {
@@ -483,22 +501,6 @@ func runGocui(cmd *cobra.Command, args []string) {
 	if err := g.MainLoop(); err != nil && err != gocui.ErrQuit {
 		log.Panicln(err)
 	}
-}
-
-func saveView(g *gocui.Gui) error {
-	maxX, maxY := g.Size()
-	v, err := g.SetView("savename", 0, maxY/2-1, maxX, maxY/2+1, 0)
-	if err != nil {
-		if err != gocui.ErrUnknownView {
-			return err
-		}
-		fmt.Fprintln(v, file)
-		v.Editable = true
-	}
-	if _, err := g.SetCurrentView("savename"); err != nil {
-		return err
-	}
-	return nil
 }
 
 func main() {
