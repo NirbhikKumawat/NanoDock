@@ -1053,7 +1053,7 @@ func highlightDockerfile(content string) string {
 }
 
 func highlightLine(line string) string {
-	trimmedLine := strings.TrimSpace(line)
+	trimmedLine := strings.TrimLeft(line, " \t\n\r")
 
 	if strings.HasPrefix(trimmedLine, "#") {
 		return ColorComment + line + ColorReset
@@ -1069,8 +1069,16 @@ func highlightLine(line string) string {
 				if len(line) > leadingSpaces+keyWordEnd {
 					rest = line[leadingSpaces+keyWordEnd:]
 				}
-
-				highlighted := line[:leadingSpaces] + ColorKeyword + actualKeyword + ColorReset
+				var highlighted string
+				if len(rest) > 0 {
+					if rest[0] == ' ' {
+						highlighted = line[:leadingSpaces] + ColorKeyword + actualKeyword + ColorReset
+					} else {
+						highlighted = line[:leadingSpaces] + actualKeyword
+					}
+				} else {
+					highlighted = line[:leadingSpaces] + ColorKeyword + actualKeyword + ColorReset
+				}
 
 				rest = highlightStrings(rest)
 
