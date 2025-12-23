@@ -1,4 +1,4 @@
-package dockerfile
+package docsreference
 
 var Info map[string]string
 
@@ -633,7 +633,7 @@ func InitializeMap() {
 		ColorKeyword + "ONBUILD " + ColorCode + "RUN /usr/local/bin/python-build --dir /app/src\n\n" +
 		ColorReset +
 		"Copy or mount from stage, image, or context\nAs of Dockerfile syntax 1.11, you can use " + ColorCode + "ONBUILD " + ColorReset + "with instructions that copy or mount files from other stages, images, or build contexts. For example:\n\n" +
-		ColorCode + "# syntax=docker/dockerfile:1.11\n" +
+		ColorCode + "# syntax=docker/docsreference:1.11\n" +
 		ColorKeyword + "FROM " + ColorCode + "alpine AS baseimage\n" +
 		ColorKeyword + "ONBUILD " + ColorCode + "COPY --from=build /usr/bin/app /app\n" +
 		ColorKeyword + "ONBUILD " + ColorCode + "RUN --mount=from=config,target=/opt/appconfig ...\n\n" +
@@ -775,34 +775,34 @@ func InitializeMap() {
 		" and others.\n\n" +
 		ColorKeyword + "Here-Documents\n" + ColorReset +
 		"Here-documents allow redirection of subsequent Dockerfile lines to the input of " + ColorCode + "RUN " + ColorReset + "or " + ColorCode + "COPY " + ColorReset + "commands. If such command contains a here-document the Dockerfile considers the next lines until the line only containing a here-doc delimiter as part of the same command.\n\n" +
-		ColorReset + "# syntax=docker/dockerfile:1\n" +
+		ColorReset + "# syntax=docker/docsreference:1\n" +
 		ColorKeyword + "FROM " + ColorCode + "debian\n" +
 		ColorKeyword + "RUN " + ColorCode + "<<EOT bash\n" +
 		"  set -ex\n" +
 		"  apt-get update\n" +
 		"  apt-get install -y vim\n" +
 		"EOT\n\n" +
-		ColorReset + "# syntax=docker/dockerfile:1\n" +
+		ColorReset + "# syntax=docker/docsreference:1\n" +
 		ColorKeyword + "FROM " + ColorCode + "debian\n" +
 		ColorKeyword + "RUN " + ColorCode + "<<EOT\n" +
 		"  mkdir -p foo/bar\n" +
 		"EOT\n\n" +
-		ColorReset + "# syntax=docker/dockerfile:1\n" +
+		ColorReset + "# syntax=docker/docsreference:1\n" +
 		ColorKeyword + "FROM " + ColorCode + "python:3.6\n" +
 		ColorKeyword + "RUN " + ColorCode + "<<EOT\n" +
 		"#!/usr/bin/env python\n" +
 		"print(\"hello world\")\n" +
 		"EOT\n\n" +
-		ColorReset + "# syntax=docker/dockerfile:1\n" +
+		ColorReset + "# syntax=docker/docsreference:1\n" +
 		ColorKeyword + "FROM " + ColorCode + "alpine\n" +
 		ColorKeyword + "RUN " + ColorCode + "<<FILE1 cat > file1 && <<FILE2 cat > file2\n" +
 		"I am\nfirst\nFILE1\nI am\nsecond\nFILE2\n\n" +
-		ColorReset + "# syntax=docker/dockerfile:1\n" +
+		ColorReset + "# syntax=docker/docsreference:1\n" +
 		ColorKeyword + "FROM " + ColorCode + "alpine\n" +
 		ColorKeyword + "COPY " + ColorCode + "<<EOF greeting.txt\n" +
 		"hello world\n" +
 		"EOF\n\n" +
-		ColorReset + "# syntax=docker/dockerfile:1\n" +
+		ColorReset + "# syntax=docker/docsreference:1\n" +
 		ColorKeyword + "FROM " + ColorCode + "alpine\n" +
 		ColorKeyword + "ARG " + ColorCode + "FOO=bar\n" +
 		ColorKeyword + "COPY " + ColorCode + "<<-EOT /script.sh\n" +
@@ -814,7 +814,7 @@ func InitializeMap() {
 		ColorCode + "docker run heredoc\n" +
 		"hello bar\n\n" +
 		"Quoted here-documents prevent expansion at build-time:\n\n" +
-		ColorKeyword + "# syntax=docker/dockerfile:1\n" +
+		ColorKeyword + "# syntax=docker/docsreference:1\n" +
 		ColorKeyword + "FROM " + ColorCode + "alpine\n" +
 		ColorKeyword + "ARG " + ColorCode + "FOO=bar\n" +
 		ColorKeyword + "COPY " + ColorCode + "<<-\"EOT\" /script.sh\n" +
@@ -847,7 +847,7 @@ func InitializeMap() {
 		"The cache for " + ColorKeyword + "RUN " + ColorReset + "instructions can be invalidated by " + ColorKeyword + "ADD " + ColorReset + "and " + ColorKeyword + "COPY " + ColorReset + "instructions.\n\n" +
 		ColorKeyword + "RUN --device" + ColorReset + "\n" +
 		ColorComment + "Note\n" + ColorReset +
-		"Not yet available in stable syntax, use " + ColorCode + "docker/dockerfile:1-labs" + ColorReset + " version. It also needs BuildKit 0.20.0 or later.\n\n" +
+		"Not yet available in stable syntax, use " + ColorCode + "docker/docsreference:1-labs" + ColorReset + " version. It also needs BuildKit 0.20.0 or later.\n\n" +
 		ColorKeyword + "RUN --device=name,[required]" + ColorReset + "\n" +
 		ColorKeyword + "RUN --device " + ColorReset + "allows build to request CDI devices to be available to the build step.\n\n" +
 		ColorComment + "Warning\n" + ColorReset +
@@ -861,7 +861,7 @@ func InitializeMap() {
 		ColorComment + "Note\n" + ColorReset +
 		"Annotations supported by CDI spec since 0.6.0. You can also set org.mobyproject.buildkit.device.autoallow annotation for all devices or specific device.\n\n" +
 		"Example: CUDA-Powered LLaMA Inference:\n\n" +
-		ColorCode + "# syntax=docker/dockerfile:1-labs\nFROM scratch AS model\nADD https://huggingface.co/.../model.gguf /model.gguf\n\nFROM scratch AS prompt\nCOPY <<EOF prompt.txt\nQ: Generate ...\nEOF\n\nFROM ghcr.io/ggml-org/llama.cpp:full-cuda-b5124\nRUN --device=nvidia.com/gpu=all \\\n    --mount=from=model,target=/models \\\n    --mount=from=prompt,target=/tmp \\\n    ./llama-cli -m /models/model.gguf -no-cnv -ngl 99 -f /tmp/prompt.txt" + ColorReset + "\n\n" +
+		ColorCode + "# syntax=docker/docsreference:1-labs\nFROM scratch AS model\nADD https://huggingface.co/.../model.gguf /model.gguf\n\nFROM scratch AS prompt\nCOPY <<EOF prompt.txt\nQ: Generate ...\nEOF\n\nFROM ghcr.io/ggml-org/llama.cpp:full-cuda-b5124\nRUN --device=nvidia.com/gpu=all \\\n    --mount=from=model,target=/models \\\n    --mount=from=prompt,target=/tmp \\\n    ./llama-cli -m /models/model.gguf -no-cnv -ngl 99 -f /tmp/prompt.txt" + ColorReset + "\n\n" +
 		ColorKeyword + "RUN --mount" + ColorReset + "\n" +
 		ColorKeyword + "RUN --mount=[type=TYPE][,option=<value>[,option=<value>]...]" + ColorReset + " allows you to create filesystem mounts that the build can access. This can be used to:\n\n" +
 		"- Create bind mount to host filesystem or other build stages\n- Access build secrets or ssh-agent sockets\n- Use persistent package cache\n\n" +

@@ -1,7 +1,7 @@
 package highlighting
 
 import (
-	"nanodocker/dockerfile"
+	"nanodocker/docsreference"
 	"regexp"
 	"strings"
 )
@@ -34,7 +34,7 @@ func HighlightDockerfile(content string) string {
 	return strings.Join(highlightedLines, "\n")
 }
 func HighlightLine(line string) string {
-	dockerfile.InitializeMap()
+	docsreference.InitializeMap()
 	trimmedLine := strings.TrimLeft(line, " \t\n\r")
 
 	if strings.HasPrefix(trimmedLine, "#") {
