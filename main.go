@@ -4,9 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"nanodocker/internal/highlighting"
 	"os"
 	"regexp"
-	"strings"
 
 	"nanodocker/dockerfile"
 
@@ -40,71 +40,14 @@ func (e DockerfileEditor) applySyntaxHighlighting(v *gocui.View) {
 	cx, cy := v.Cursor()
 	ox, oy := v.Origin()
 
-	content := stripAnsiCodes(v.Buffer())
-
-	highlighted := highlightDockerfile(content)
+	content := highlighting.StripAnsiCodes(v.Buffer())
+	highlighted := highlighting.HighlightDockerfile(content)
 
 	v.Clear()
 	fmt.Fprint(v, highlighted)
 
 	v.SetCursor(cx, cy)
 	v.SetOrigin(ox, oy)
-}
-func stripAnsiCodes(text string) string {
-	ansiRegex := regexp.MustCompile(`\x1b\[[0-9;]*m`)
-	return ansiRegex.ReplaceAllString(text, "")
-}
-func highlightDockerfile(content string) string {
-	lines := strings.Split(content, "\n")
-	var highlightedLines []string
-
-	for _, line := range lines {
-		highlightedLines = append(highlightedLines, highlightLine(line))
-	}
-	return strings.Join(highlightedLines, "\n")
-}
-func highlightLine(line string) string {
-	trimmedLine := strings.TrimLeft(line, " \t\n\r")
-
-	if strings.HasPrefix(trimmedLine, "#") {
-		return ColorComment + line + ColorReset
-	}
-
-	for _, keyword := range dockerfileKeywords {
-		if strings.HasPrefix(strings.ToUpper(trimmedLine), keyword) {
-			keyWordEnd := len(keyword)
-			if len(trimmedLine) >= keyWordEnd {
-				leadingSpaces := len(line) - len(trimmedLine)
-				actualKeyword := line[leadingSpaces : leadingSpaces+keyWordEnd]
-				rest := ""
-				if len(line) > leadingSpaces+keyWordEnd {
-					rest = line[leadingSpaces+keyWordEnd:]
-				}
-				var highlighted string
-				if len(rest) > 0 {
-					if rest[0] == ' ' {
-						highlighted = line[:leadingSpaces] + ColorKeyword + actualKeyword + ColorReset
-					} else {
-						highlighted = line[:leadingSpaces] + actualKeyword
-					}
-				} else {
-					highlighted = line[:leadingSpaces] + ColorKeyword + actualKeyword + ColorReset
-				}
-
-				rest = highlightStrings(rest)
-
-				return highlighted + rest
-			}
-		}
-	}
-	return highlightStrings(line)
-}
-func highlightStrings(text string) string {
-	stringRegex := regexp.MustCompile(`("[^"]*"|'[^']*')`)
-
-	return stringRegex.ReplaceAllStringFunc(text, func(match string) string {
-		return ColorString + match + ColorReset
-	})
 }
 
 // Cursor navigation
@@ -293,7 +236,7 @@ func saveMain(g *gocui.Gui, v *gocui.View) error {
 		return err
 	}
 
-	content := stripAnsiCodes(v.Buffer())
+	content := highlighting.StripAnsiCodes(v.Buffer())
 
 	if _, err := f.WriteString(content); err != nil {
 		f.Close()
@@ -438,7 +381,7 @@ func layout(g *gocui.Gui) error {
 			}
 
 			content := string(b)
-			highlighted := highlightDockerfile(content)
+			highlighted := highlighting.HighlightDockerfile(content)
 			fmt.Fprint(v, highlighted)
 		}
 
@@ -510,7 +453,6 @@ func runGocui(cmd *cobra.Command, args []string) {
 }
 
 func main() {
-	dockerfile.InitializeMap()
 	var rootCmd = &cobra.Command{
 		Use:   "nanodock [file]",
 		Short: "Terminal based Dockerfile Editor",
